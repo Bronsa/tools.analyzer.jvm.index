@@ -1,6 +1,5 @@
 (ns clojure.tools.analyzer.jvm.index
-  (:require [clojure.tools.analyzer.jvm :as jvm]
-            [clojure.tools.analyzer.jvm.schema :as schema]
+  (:require [clojure.tools.analyzer.jvm.schema :as schema]
             [clojure.tools.analyzer.jvm.tx :as tx]
             [datomic.api :as d]))
 

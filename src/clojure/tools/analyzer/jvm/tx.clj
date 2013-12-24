@@ -353,7 +353,6 @@
   {:ast/op    :ast.op/vector
    :ast/items (indexed-tx-data items)})
 
-
 (defmethod -tx-data :with-meta
   [{:keys [meta expr]}]
   {:ast/op   :ast.op/with-meta
