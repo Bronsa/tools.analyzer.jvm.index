@@ -4,11 +4,11 @@
             [clojure.tools.analyzer.jvm.tx :as tx]
             [datomic.api :as d]))
 
-(def ^:const uri "datomic:mem://tools.analyzer.jvm.index")
+(def ^:const uri "datomic:mem://tools.analyzer.jvm.index/")
 
-(defn connect []
+(defn connect [name]
   (let [conn (d/connect
-              (doto uri
+              (doto (str uri name)
                 d/delete-database
                 d/create-database))]
     @(d/transact conn schema/schema)
