@@ -348,6 +348,26 @@
    :ast/var (binding [*print-dup* true]
               (pr-str var))})
 
+(defmethod -tx-data :throw
+  [{:keys [exception]}]
+  {:ast/op        :ast.op/throw
+   :ast/exception (tx-data exception)})
+
+(defmethod -tx-data :try
+  [{:keys [body catches finally]}]
+  (merge {:ast/op      :ast.op/try
+          :ast/body    (tx-data body)
+          :ast/catches (mapv tx-data catches)}
+         (when finally
+           {:ast/finally (tx-data finally)})))
+
+(defmethod -tx-data :var
+  [{:keys [var assignable?]}]
+  {:ast/op          :ast.op/var
+   :ast/assignable? assignable?
+   :ast/var         (binding [*print-dup* true]
+                      (pr-str var)) })
+
 (defmethod -tx-data :vector
   [{:keys [items]}]
   {:ast/op    :ast.op/vector
