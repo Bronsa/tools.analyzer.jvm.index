@@ -13,8 +13,8 @@
                    (mapvcat (fn [v] (into [[ast k v]] (ast->eav v))) v))
                  [[ast k v]])) ast)))
 
-(defn q [query ast]
-  (d/q query (ast->eav ast)))
+(defn q [query asts]
+  (d/q query (mapvcat ast->eav asts)))
 
 (comment
   (q '[:find ?var ?val
@@ -43,4 +43,4 @@
        [?else :var ?var]
        [?else :init ?i]
        [?i :form ?val]]
-     (jvm/analyze '(defonce foo 1) (jvm/empty-env))))
+     [(jvm/analyze '(defonce foo 1) (jvm/empty-env))]))
