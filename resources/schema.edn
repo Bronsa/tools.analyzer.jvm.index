@@ -401,7 +401,7 @@
   :db/isComponent        true
   :db.install/_attribute :db.part/db}
 
- {:db/ident              :local/init
+ {:db/ident              :ast/init
   :db/id                 #db/id[:db.part/db]
   :db/cardinality        :db.cardinality/one
   :db/valueType          :db.type/ref
@@ -700,7 +700,7 @@
  {:db/ident              :ast/instance
   :db/id                 #db/id[:db.part/db]
   :db/cardinality        :db.cardinality/one
-  :db/valueType          :db.type/string
+  :db/valueType          :db.type/ref
   :db/isComponent        true
   :db.install/_attribute :db.part/db}
 

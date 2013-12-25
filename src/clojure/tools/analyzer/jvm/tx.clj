@@ -49,7 +49,7 @@
            {:ast/init (tx-data init)})
          (when arg-id
            {:arg/id arg-id})
-         (when-not (::not-present variadic?)
+         (when-not (= ::not-present variadic?)
            {:ast/variadic? variadic?})
          (when mutable
            {:field/mutable mutable})))
@@ -229,7 +229,7 @@
                                 :field :local.type/field})}
          (when arg-id
            {:arg/id arg-id})
-         (when-not (::not-present variadic?)
+         (when-not (= ::not-present variadic?)
            {:ast/variadic? variadic?})
          (when mutable
            {:field/mutable   mutable
