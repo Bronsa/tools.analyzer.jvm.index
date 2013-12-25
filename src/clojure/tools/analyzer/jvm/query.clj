@@ -1,20 +1,17 @@
 (ns clojure.tools.analyzer.jvm.query
   (:require [datomic.api :as d]))
 
-(defn mapvcat [f coll]
-  (apply concat (mapv f coll)))
-
 (defn ast->eav [ast]
   (let [children (set (:children ast))]
-    (mapvcat (fn [[k v]]
+    (mapcat (fn [[k v]]
                (if (children k)
                  (if (map? v)
                    (into [[ast k v]] (ast->eav v))
-                   (mapvcat (fn [v] (into [[ast k v]] (ast->eav v))) v))
+                   (mapcat (fn [v] (into [[ast k v]] (ast->eav v))) v))
                  [[ast k v]])) ast)))
 
 (defn q [query asts]
-  (d/q query (mapvcat ast->eav asts)))
+  (d/q query (mapcat ast->eav asts)))
 
 (comment
   (q '[:find ?var ?val
