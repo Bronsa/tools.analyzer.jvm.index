@@ -10,16 +10,37 @@
                    (mapcat (fn [v] (into [[ast k v]] (ast->eav v))) v))
                  [[ast k v]])) ast)))
 
-(defn q [query asts]
-  (d/q query (mapcat ast->eav asts)))
+(defn ssa [query]
+  (let [[pre [_ & post]] (split-with (fn [el] (not= el :where)) query)]
+    `[~@pre
+      :where
+      ~@(mapcat (fn [[op & rest :as form]]
+                  (if (seq? op)
+                    (let [[f & args] op]
+                      (if (some seq? args)
+                        (loop [args args to-ssa {} cur [f] binds rest ret []]
+                          (if (seq args)
+                            (let [[a & args] args]
+                              (if (seq? a)
+                                (let [g (gensym "?")]
+                                  (recur args (assoc to-ssa g a) (conj cur g) binds ret))
+                                (recur args to-ssa (conj cur a) binds ret)))
+                            (let [ret (conj ret `[~(seq cur) ~@binds])]
+                              (if (seq to-ssa)
+                                (let [[k [f & args]] (first to-ssa)]
+                                  (recur args (dissoc to-ssa k) [f] [k] ret))
+                                ret))))
+                        [form]))
+                    [form])) post)]))
+
+(defn q [query asts & inputs]
+  (apply d/q (ssa query) (mapcat ast->eav asts) inputs))
 
 (comment
   (q '[:find ?var ?val
        :where
        [?let :op :let]
-       [(:bindings ?let) ?bindings]
-       [(count ?bindings) ?bindc]
-       [(= 1 ?bindc)]
+       [(= 1 (count (:bindings ?let)))]
        [?let :bindings ?binding]
        [?init :op :def]
        [?init :var ?var]
