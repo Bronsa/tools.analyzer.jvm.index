@@ -1,5 +1,6 @@
 (ns clojure.tools.analyzer.jvm.query
-  (:require [datomic.api :as d]))
+  (:require [datomic.api :as d]
+            [clojure.tools.analyzer.ast :as ast]))
 
 (defn ast->eav [ast]
   (let [children (set (:children ast))]
@@ -34,8 +35,20 @@
                         [form]))
                     [form])) post)]))
 
+(defn idx-many [ast]
+  (ast/postwalk ast
+                (fn [{:keys [children] :as ast}]
+                  (merge ast
+                         (into {} (map (fn [c]
+                                         (let [v (c ast)
+                                               v (if (vector? v)
+                                                   (mapv (fn [x i] (assoc x :idx i ))
+                                                         v (range))
+                                                   v)]
+                                           [c v])) children))))))
+
 (defn q [query asts & inputs]
-  (apply d/q (ssa query) (mapcat ast->eav asts) inputs))
+  (apply d/q (ssa query) (mapcat (comp ast->eav idx-many) asts) inputs))
 
 (comment
   (q '[:find ?var ?val
@@ -68,13 +81,12 @@
        :where
        [?def :op :def]
        [?def :form ?form]
-       [?def :env ?env]
-       [(:line ?env) ?line]
+       [(-> ?def :env :line) ?line]
        [?def :name ?name]
        [?def :init ?fn]
        [?fn :methods ?method]
        [?method :body ?body]
        [?body :statements ?statement]
        [?statement :type :string]
-       [(= (first (:statements ?body)) ?statement)]]
+       [?statement :idx 0]]
      [(jvm/analyze '(defn x [] "foo" 1) (jvm/empty-env))]))
