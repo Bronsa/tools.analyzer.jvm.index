@@ -62,4 +62,19 @@
        [?else :var ?var]
        [?else :init ?i]
        [?i :form ?val]]
-     [(jvm/analyze '(defonce foo 1) (jvm/empty-env))]))
+     [(jvm/analyze '(defonce foo 1) (jvm/empty-env))])
+
+  (q '[:find ?line ?form ?name
+       :where
+       [?def :op :def]
+       [?def :form ?form]
+       [?def :env ?env]
+       [(:line ?env) ?line]
+       [?def :name ?name]
+       [?def :init ?fn]
+       [?fn :methods ?method]
+       [?method :body ?body]
+       [?body :statements ?statement]
+       [?statement :type :string]
+       [(= (first (:statements ?body)) ?statement)]]
+     [(jvm/analyze '(defn x [] "foo" 1) (jvm/empty-env))]))
