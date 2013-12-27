@@ -1,6 +1,7 @@
 (ns clojure.tools.analyzer.jvm.query
   (:require [datomic.api :as d]
             [clojure.tools.analyzer.ast :as ast]
+            [clojure.tools.analyzer.passes.index-vector-nodes :refer [index-vector-nodes]]
             [clojure.tools.analyzer.jvm :as jvm]))
 
 (defn ast->eav [ast]
@@ -60,16 +61,7 @@
                      form)) where))))
 
 (defn idx-many [ast]
-  (ast/postwalk ast
-                (fn [{:keys [children] :as ast}]
-                  (merge ast
-                         (reduce (fn [m c]
-                                   (let [v (c ast)
-                                         v (if (vector? v)
-                                             (mapv (fn [x i] (assoc x :idx i ))
-                                                   v (range))
-                                             v)]
-                                     (assoc m c v))) {} children)))))
+  (ast/postwalk ast index-vector-nodes))
 
 (defn db [asts]
   (mapcat (fn [ast] (-> ast idx-many ast->eav)) asts))
