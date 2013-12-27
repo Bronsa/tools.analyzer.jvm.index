@@ -46,6 +46,19 @@
             (recur (update-in ret [op] conj el) query op)))
         (reduce-kv (fn [m k v] (if (seq v) (assoc m k v) m)) {} ret)))))
 
+(defn resolve-calls [{:keys [where] :as query}]
+  (if-not where
+    query
+    (assoc query :where
+           (mapv (fn [[op & rest :as form]]
+                   (if-let [[f & args] (and (seq? op) op)]
+                     (if-let [f-var (and (symbol? f) (resolve f))]
+                       (into [(seq (into [(symbol (str (ns-name (.ns f-var)))
+                                                  (str (.sym f-var)))] args))]
+                             rest)
+                       form)
+                     form)) where))))
+
 (defn idx-many [ast]
   (ast/postwalk ast
                 (fn [{:keys [children] :as ast}]
@@ -62,7 +75,7 @@
   (mapcat (fn [ast] (-> ast idx-many ast->eav)) asts))
 
 (defn prepare [query]
-  (-> query query-map ssa))
+  (-> query query-map ssa resolve-calls))
 
 (defn q [query asts & inputs]
   (apply d/q (prepare query) (db asts) inputs))
