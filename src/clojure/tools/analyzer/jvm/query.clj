@@ -1,54 +1,71 @@
 (ns clojure.tools.analyzer.jvm.query
   (:require [datomic.api :as d]
-            [clojure.tools.analyzer.ast :as ast]))
+            [clojure.tools.analyzer.ast :as ast]
+            [clojure.tools.analyzer.jvm :as jvm]))
 
 (defn ast->eav [ast]
   (let [children (set (:children ast))]
     (mapcat (fn [[k v]]
-               (if (children k)
-                 (if (map? v)
-                   (into [[ast k v]] (ast->eav v))
-                   (mapcat (fn [v] (into [[ast k v]] (ast->eav v))) v))
-                 [[ast k v]])) ast)))
+              (if (children k)
+                (if (map? v)
+                  (into [[ast k v]] (ast->eav v))
+                  (mapcat (fn [v] (into [[ast k v]] (ast->eav v))) v))
+                [[ast k v]])) ast)))
 
-(defn ssa [query]
-  (let [[pre [_ & post]] (split-with (fn [el] (not= el :where)) query)]
-    `[~@pre
-      :where
-      ~@(mapcat (fn [[op & rest :as form]]
-                  (if (seq? op)
-                    (let [[f & args] op]
-                      (if (some seq? args)
-                        (loop [args args to-ssa {} cur [f] binds rest ret []]
-                          (if (seq args)
-                            (let [[a & args] args]
-                              (if (and (seq? a)
-                                       (not= 'quote (first a)))
-                                (let [g (gensym "?")]
-                                  (recur args (assoc to-ssa g a) (conj cur g) binds ret))
-                                (recur args to-ssa (conj cur a) binds ret)))
-                            (let [ret (conj ret `[~(seq cur) ~@binds])]
-                              (if (seq to-ssa)
-                                (let [[k [f & args]] (first to-ssa)]
-                                  (recur args (dissoc to-ssa k) [f] [k] ret))
-                                ret))))
-                        [form]))
-                    [form])) post)]))
+(defn ssa [{:keys [where] :as query}]
+  (if-not where
+    query
+    (assoc query :where
+           (mapcat (fn [[op & rest :as form]]
+                     (if-let [[f & args] (and (seq? op) op)]
+                       (if (some seq? args)
+                         (loop [args args to-ssa {} cur [f] binds rest ret []]
+                           (if (seq args)
+                             (let [[a & args] args]
+                               (if (and (seq? a)
+                                        (not= 'quote (first a)))
+                                 (let [g (gensym "?")]
+                                   (recur args (assoc to-ssa g a) (conj cur g) binds ret))
+                                 (recur args to-ssa (conj cur a) binds ret)))
+                             (let [ret (conj ret (into [(seq cur)] binds))]
+                               (if (seq to-ssa)
+                                 (let [[k [f & args]] (first to-ssa)]
+                                   (recur args (dissoc to-ssa k) [f] [k] ret))
+                                 ret))))
+                         [form])
+                       [form])) where))))
+
+(defn query-map [query]
+  (if (map? query)
+    query
+    (loop [ret {:find [] :in [] :where []} query query op nil]
+      (if (seq query)
+        (let [[el & query] query]
+          (if (keyword? el)
+            (recur ret query el)
+            (recur (update-in ret [op] conj el) query op)))
+        (reduce-kv (fn [m k v] (if (seq v) (assoc m k v) m)) {} ret)))))
 
 (defn idx-many [ast]
   (ast/postwalk ast
                 (fn [{:keys [children] :as ast}]
                   (merge ast
-                         (into {} (map (fn [c]
-                                         (let [v (c ast)
-                                               v (if (vector? v)
-                                                   (mapv (fn [x i] (assoc x :idx i ))
-                                                         v (range))
-                                                   v)]
-                                           [c v])) children))))))
+                         (reduce (fn [m c]
+                                   (let [v (c ast)
+                                         v (if (vector? v)
+                                             (mapv (fn [x i] (assoc x :idx i ))
+                                                   v (range))
+                                             v)]
+                                     (assoc m c v))) {} children)))))
+
+(defn db [asts]
+  (mapcat (fn [ast] (-> ast idx-many ast->eav)) asts))
+
+(defn prepare [query]
+  (-> query query-map ssa))
 
 (defn q [query asts & inputs]
-  (apply d/q (ssa query) (mapcat (comp ast->eav idx-many) asts) inputs))
+  (apply d/q (prepare query) (db asts) inputs))
 
 (comment
   (q '[:find ?var ?val
