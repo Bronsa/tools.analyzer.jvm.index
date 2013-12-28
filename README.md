@@ -1,10 +1,6 @@
 # tools.analyzer.jvm.index
 
-A Clojure library designed to ... well, that part is up to you.
-
-## Usage
-
-FIXME
+Utilities for querying tools.analyzer ASTs using Datomic, now provided in the tools.analyzer.ast.query namespace.
 
 ## License
 
